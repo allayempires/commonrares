@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Plugin Builder</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: #313244; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 350px; }
+        input[type="file"] { margin: 20px 0; padding: 10px; width: 90%; background: #181825; color: #a6adc8; border: 1px solid #45475a; border-radius: 6px; }
+        button { background: #a6e3a1; color: #11111b; border: none; padding: 12px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        button:hover { background: #94e2d5; }
+        button:disabled { background: #585b70; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 14px; color: #f38ba8; }
+        #downloadBtn { display: none; background: #89b4fa; margin-top: 15px; text-decoration: none; padding: 12px 20px; border-radius: 6px; color: #11111b; font-weight: bold; }
+        #downloadBtn:hover { background: #74c7ec; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🛠️ Plugin Auto-Builder</h2>
+    <p style="font-size: 14px; color: #a6adc8;">Apne Gradle project ki .zip file upload karein</p>
+    
+    <input type="file" id="zipFile" accept=".zip">
+    <button id="buildBtn" onclick="buildPlugin()">Build Plugin</button>
+    
+    <div id="status"></div>
+    <a id="downloadBtn" href="#">⬇️ Download .jar</a>
+</div>
+
+<script>
+    async function buildPlugin() {
+        const fileInput = document.getElementById('zipFile');
+        const status = document.getElementById('status');
+        const buildBtn = document.getElementById('buildBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        if (fileInput.files.length === 0) {
+            status.innerText = "Error: Pehle .zip file select karein!";
+            return;
+        }
+
+        // UI Reset
+        status.innerText = "⏳ Uploading aur building process shuru... thoda wait karein.";
+        status.style.color = "#f9e2af";
+        downloadBtn.style.display = 'none';
+        buildBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        try {
+            const response = await fetch('/build', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // Response ek file blob (jar) hai
+                const blob = await response.blob();
+                
+                // Filename header se nikalna (optional)
+                let filename = 'built-plugin.jar';
+                const disposition = response.headers.get('Content-Disposition');
+                if (disposition && disposition.indexOf('attachment') !== -1) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (matches != null && matches[1]) { 
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                downloadBtn.href = url;
+                downloadBtn.download = filename;
+                downloadBtn.style.display = 'inline-block';
+                status.innerText = "✅ Build Successful!";
+                status.style.color = "#a6e3a1";
+            } else {
+                // Agar error aayi to JSON read karein
+                const errData = await response.json();
+                status.innerText = "❌ Error: " + (errData.error || 'Build fail ho gaya');
+                status.style.color = "#f38ba8";
+                if(errData.log) console.error("Build Log:", errData.log);
+            }
+        } catch (error) {
+            status.innerText = "❌ Network Error: Server se connect nahi ho paya.";
+            status.style.color = "#f38ba8";
+        } finally {
+            buildBtn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+  </html>
+  
